@@ -3,8 +3,12 @@ class Test {
         int i = 2;
         Inner inner = new Inner(i);
         i = 3;
-        System.out.println("Hello, World!" + i);
-        System.out.println(inner.x);
+        print("Hello, World!" + i);
+        print(""+inner.x);
+    }
+
+    public static void print(String a){
+        System.out.println(a);
     }
 
 

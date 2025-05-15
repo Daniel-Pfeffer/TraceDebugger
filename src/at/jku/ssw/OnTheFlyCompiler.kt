@@ -2,19 +2,14 @@
 
 package at.jku.ssw
 
-import com.sun.source.tree.CompilationUnitTree
-import com.sun.source.tree.Tree
 import com.sun.source.util.JavacTask
-import com.sun.source.util.Trees
 import com.sun.tools.javac.code.Symtab
 import com.sun.tools.javac.tree.JCTree
-import java.io.IOException
-import java.io.StringWriter
-import java.net.URI
 import com.sun.tools.javac.tree.TreeMaker
-import com.sun.tools.javac.util.Context
 import com.sun.tools.javac.util.Names
 import java.io.File
+import java.io.StringWriter
+import java.net.URI
 import java.nio.file.Files
 import java.nio.file.Paths
 import javax.tools.*
@@ -64,6 +59,9 @@ object OnTheFlyCompiler {
         task.analyze() // fill symbol table
 
         val files = task.generate()
+        files.forEach {
+            println(it)
+        }
 
         println(outWriter.toString())
     }
