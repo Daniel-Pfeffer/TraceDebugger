@@ -3,14 +3,16 @@ class Test {
         int i = 2;
         Inner inner = new Inner(i);
         i = 3;
+        i++;
+        var x = "Hello World!";
+        inner.x = 4;
         print("Hello, World!" + i);
-        print(""+inner.x);
+        print("" + inner.x);
     }
 
-    public static void print(String a){
+    public static void print(String a) {
         System.out.println(a);
     }
-
 
     static class Inner {
         int x;

@@ -56,6 +56,8 @@ object OnTheFlyCompiler {
         }
 
 
+        println(task)
+
         task.analyze() // fill symbol table
 
         val files = task.generate()
