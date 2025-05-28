@@ -5,13 +5,13 @@ package at.jku.ssw
 import com.sun.tools.javac.code.Flags
 import com.sun.tools.javac.tree.JCTree.*
 import com.sun.tools.javac.tree.TreeMaker
-import com.sun.tools.javac.tree.TreeScanner
 import com.sun.tools.javac.tree.TreeTranslator
 import com.sun.tools.javac.util.Context
 import com.sun.tools.javac.util.List
 import com.sun.tools.javac.util.ListBuffer
 import com.sun.tools.javac.util.Name
 import com.sun.tools.javac.util.Names
+import java.util.Stack
 import kotlin.collections.set
 import kotlin.collections.List as KList
 
@@ -19,6 +19,10 @@ internal class VarAssignmentVisitor private constructor(
     private val treeMaker: TreeMaker,
     private val names: Names,
 ) : TreeTranslator() {
+
+    private val generator = AstGenerator(names, treeMaker)
+
+    private val classStack: Stack<Name> = Stack()
 
     companion object {
         fun generate(tree: JCCompilationUnit, context: Context) {
@@ -29,30 +33,43 @@ internal class VarAssignmentVisitor private constructor(
         }
 
         private const val ANON_PREFIX = "$\$anon"
+
+        private var anonCounter = 0 // incredibly ugly, probably should do variable reusing for that
     }
 
     override fun visitMethodDef(methodDecl: JCMethodDecl) {
-        val enterStatement = generateSysOutCall("Enter method ${methodDecl.name}")
-        val exitStatement = generateSysOutCall("Exit method ${methodDecl.name}")
+        val enterStatement = generator.generateTraceMethodEntry(classStack.peek(), methodDecl.name)
 
-        // add at beginning
+        val newStats = ListBuffer<JCStatement>()
+        newStats.append(enterStatement)
+
         if (methodDecl.body != null) {
-            methodDecl.body = treeMaker.Block(
-                0,
-                methodDecl.body.stats.prepend(enterStatement).append(exitStatement)
-            )
+            val statements = methodDecl.body.stats ?: List.nil()
+            val shouldAppend = statements.last() !is JCReturn
+
+            newStats.appendList(statements)
+
+            if (shouldAppend) {
+                val exitStatement = generator.generateMethodExit()
+                newStats.append(exitStatement)
+            }
         }
+        if (methodDecl.name == names.main) {
+            newStats.append(generator.generateTraceRecordEnd())
+        }
+
+        methodDecl.body = treeMaker.Block(
+            methodDecl.body.flags,
+            newStats.toList()
+        )
 
         super.visitMethodDef(methodDecl)
     }
 
-    override fun visitVarDef(tree: JCVariableDecl) {
-        println("Visiting var decl (${tree.pos}): $tree")
-        super.visitVarDef(tree)
-    }
-
-    override fun visitLabelled(tree: JCLabeledStatement) {
-        super.visitLabelled(tree)
+    override fun visitTopLevel(tree: JCCompilationUnit) {
+        val newImport = generator.generateTraceRecorderImport()
+        tree.defs = tree.defs.prepend(newImport)
+        super.visitTopLevel(tree)
     }
 
     override fun visitBlock(tree: JCBlock) {
@@ -62,16 +79,102 @@ internal class VarAssignmentVisitor private constructor(
             return super.visitBlock(tree)
         }
         val newStats = ListBuffer<JCStatement>()
-        val collector = AssignmentCollector()
         for (stat in tree.stats) {
-            collector.scan(stat)
+            when (stat) {
+                is JCIf -> {
+                    // TODO: add extract condition, else let it be
+                    val condition = stat.cond
 
-            if (collector.modified) {
-                newStats.appendList(collector.newStatements)
-            } else {
-                newStats.append(stat)
+                    val traceCondition = generator.generateTraceRecordCondition(condition)
+
+                    val newCondition = treeMaker.If(
+                        traceCondition,
+                        stat.thenpart,
+                        stat.elsepart
+                    )
+
+                    newStats.append(newCondition)
+                }
+
+                is JCForLoop -> {
+                    // TODO: add extract loop stuff, else let it be
+                    /*                    val init = stat.init
+                                        val condition = stat.cond
+                                        val step = stat.step
+                                        val loopInitName = names.fromString(generateAnonName("loopInit"))
+                                        val loopConditionName = names.fromString(generateAnonName("loopCondition"))
+                                        val loopInitDecl =
+                                            generateVariableDefinition(loopInitName, init.firstOrNull() ?: treeMaker.Literal(""))*/
+                    println("Found for loop")
+                    stat.step
+
+                    newStats.append(stat) // TODO: handle for loop
+                }
+
+                is JCExpressionStatement -> {
+                    when (stat.expr) {
+                        is JCAssign -> {
+                            val assign = stat.expr as JCAssign
+
+                            val variableName = variableName(assign.variable)
+
+                            if (variableName.startsWith(ANON_PREFIX)) {
+                                println("Skipping assignment to anonymous variable: $variableName")
+                                newStats.append(stat)
+                            } else {
+                                newStats.append(
+                                    treeMaker.Exec(
+                                        treeMaker.at(assign.pos).Assign(
+                                            assign.variable,
+                                            generator.generateTraceRecordAssign(
+                                                variableName,
+                                                assign.rhs
+                                            )
+                                        )
+                                    )
+                                )
+
+
+                            }
+                        }
+
+                        else -> {
+                            // If the expression is not an assignment, we just append it
+                            newStats.append(stat)
+                        }
+                    }
+                }
+
+                is JCReturn -> {
+                    val anonName = generateAnonName(names.fromString("return"))
+
+                    val anonVariableDefinition = generator.generateVariableDefinition(
+                        anonName,
+                        stat.expr
+                    )
+
+                    val beforeReturn = generator.generateMethodExit()
+
+                    val returnActual = treeMaker.Return(treeMaker.Ident(anonVariableDefinition.name))
+
+                    newStats.appendList(
+                        List.of<JCStatement>(
+                            anonVariableDefinition,
+                            generator.generateTraceReturnValue(anonVariableDefinition.name),
+                            beforeReturn,
+                            returnActual
+                        )
+                    )
+                }
+
+                is JCSwitch -> {
+                    println("Found switch statement")
+                }
+
+                else -> {
+                    newStats.append(stat)
+                }
             }
-            collector.reset()
         }
         tree.stats = newStats.toList()
         super.visitBlock(tree)
@@ -87,6 +190,7 @@ internal class VarAssignmentVisitor private constructor(
         }
         registerClass(className, varDecls, emptyList())
         super.visitClassDef(tree)
+        classStack.pop()
     }
 
     val classRegistrations = mutableMapOf<Name, ClassRegistration>()
@@ -126,9 +230,10 @@ internal class VarAssignmentVisitor private constructor(
         println("Registering class $identifier with variables: $decls and methods: $methods")
 
         classRegistrations[identifier] = classRegistration
+        classStack.push(identifier)
     }
 
-    fun generateSysOutCall(param: String): JCExpressionStatement {
+    fun generateSysOutCall(param: String, value: JCVariableDecl): JCExpressionStatement {
         val systemOut = treeMaker.Select(
             treeMaker.Ident(names.fromString("System")),
             names.fromString("out")
@@ -137,108 +242,24 @@ internal class VarAssignmentVisitor private constructor(
         val printlnCall = treeMaker.Apply(
             List.nil(),
             treeMaker.Select(systemOut, names.fromString("println")),
-            List.of(treeMaker.Literal(param))
+            List.of(treeMaker.Binary(Tag.PLUS, treeMaker.Literal(param), treeMaker.Ident(value.name)))
         )
         return treeMaker.Exec(printlnCall)
     }
 
-
-    fun generateSysOutCall(variable: JCExpression, value: JCVariableDecl): JCExpressionStatement? {
-        val systemOut = treeMaker.Select(
-            treeMaker.Ident(names.fromString("System")),
-            names.fromString("out")
-        )
-
-        val literal = when (variable) {
-            is JCIdent -> treeMaker.Literal("Assigning " + variable.name + " to value: ")
-            // if variable.selected is JCIdent, then it is a field access pointing to local variable with name inner in script
-            is JCFieldAccess -> treeMaker.Literal("Assigning ${variable.name} in object ${variable.selected} to value: ")
-            else -> treeMaker.Literal("Assigning to value: ")
-        }
-
-        val message = treeMaker.Binary(
-            Tag.PLUS,
-            literal,
-            treeMaker.Ident(value.name)
-        )
-
-        val printlnCall = treeMaker.Apply(
-            List.nil(),
-            treeMaker.Select(systemOut, names.fromString("println")),
-            List.of(message)
-        )
-        return treeMaker.Exec(printlnCall)
+    private fun generateAnonName(original: Name): String {
+        return ANON_PREFIX + original + anonCounter++
     }
 
+    private fun generateAnonName(original: String): String {
+        return ANON_PREFIX + original + anonCounter++
+    }
 
-    private inner class AssignmentCollector : TreeScanner() {
-        var modified = false
-        var newStatements: List<JCStatement> = List.nil()
-
-        val mapping = mutableMapOf<Name, JCExpression>()
-
-        fun reset() {
-            modified = false
-            newStatements = List.nil()
-        }
-
-        override fun visitVarDef(tree: JCVariableDecl) {
-            mapping[tree.name] = tree.vartype;
-            super.visitVarDef(tree)
-        }
-
-        override fun visitExec(tree: JCExpressionStatement) {
-            if (tree.expr is JCAssign) {
-                val assign = tree.expr as JCAssign
-
-                val variableName = variableName(assign.variable)
-
-                if (variableName.startsWith(ANON_PREFIX)) {
-                    println("Skipping assignment to anonymous variable: $variableName")
-                    super.visitExec(tree)
-                    return
-                }
-
-                val anonName = names.fromString(generateAnonName(variableName))
-
-
-                /*val varType = mapping[variableName]
-                    ?: error("Variable type not found for $variableName")*/
-
-                val anonVariableDefinition = treeMaker.VarDef(
-                    treeMaker.Modifiers(Flags.FINAL.toLong()),
-                    anonName,
-                    null,
-                    assign.expression,
-                    true
-                )
-
-                val beforeAssign = generateSysOutCall(assign.variable, anonVariableDefinition)
-
-                val copyFromAnonToActual = treeMaker.Exec(
-                    treeMaker.at(assign.pos).Assign(
-                        assign.variable,
-                        treeMaker.Ident(anonName)
-                    )
-                )
-
-                newStatements = List.of<JCStatement>(anonVariableDefinition, beforeAssign, copyFromAnonToActual)
-                modified = true
-            } else {
-                super.visitExec(tree)
-            }
-        }
-
-        private fun variableName(tree: JCExpression): Name {
-            return when (tree) {
-                is JCIdent -> tree.name
-                is JCFieldAccess -> tree.name
-                else -> error("Unknown expression type")
-            }
-        }
-
-        private fun generateAnonName(original: Name): String {
-            return ANON_PREFIX + original
+    private fun variableName(tree: JCExpression): Name {
+        return when (tree) {
+            is JCIdent -> tree.name
+            is JCFieldAccess -> tree.name
+            else -> error("Unknown expression type")
         }
     }
 }

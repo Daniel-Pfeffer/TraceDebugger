@@ -21,13 +21,15 @@ object OnTheFlyCompiler {
     private val COMPILATION_OUTPUT_DIR = Files.createTempDirectory(COMPILATION_DIR_NAME).toAbsolutePath().toString()
     private val COMPILATION_INPUT_DIR = Files.createTempDirectory(COMPILATION_DIR_NAME)
     val INTERNAL_CLASS_PATTERNS: List<String> = listOf(
-        "java.*", "javax.*", "javafx.*", "sun.*", "com.sun.*", "jdk.*", "*.In", "*.Out", "*.Rand", "In", "Out", "Rand"
+        "java.*", "javax.*", "javafx.*", "sun.*", "com.sun.*", "jdk.*", "*.In", "*.Out", "*.Rand", "In", "Out", "Rand", "$\$jwdebug"
     )
 
 
     fun compile(source: String) {
         val javac = ToolProvider.getSystemJavaCompiler()
 
+        val traceRecorderFile = this::class.java.classLoader.getResource("$$\$TraceRecorder.java")?.path
+            ?: error("TraceRecorder file not found")
 
         val fileManager = javac.getStandardFileManager(null, null, null)
         val outWriter = StringWriter()
@@ -36,11 +38,13 @@ object OnTheFlyCompiler {
         val options = listOf(DEBUG_FLAG)
         val classes: List<String>? = null
 
-        val sources = listOf(FakeJavaSourceFile(source))
+        val sources = listOf(FakeJavaSourceFile(source), FakeJavaSourceFile(traceRecorderFile))
         initFileManager(fileManager, source, sources)
 
 
-        val task = javac.getTask(outWriter, fileManager, diagnosticListener, options, classes, sources) as JavacTask
+        val task = javac.getTask(
+            outWriter, fileManager, diagnosticListener, options, classes, sources
+        ) as JavacTask
 
         val trees = task.parse()
         val context = (task as com.sun.tools.javac.api.BasicJavacTask).context
@@ -51,7 +55,9 @@ object OnTheFlyCompiler {
         TreeMaker.instance(context)
         Names.instance(context)
 
-        trees.filterIsInstance<JCTree.JCCompilationUnit>().filter { !isInternal(it, INTERNAL_CLASS_PATTERNS) }.forEach {
+        trees.filterIsInstance<JCTree.JCCompilationUnit>().filter {
+            !isInternal(it, INTERNAL_CLASS_PATTERNS)
+        }.forEach {
             VarAssignmentVisitor.generate(it, context)
         }
 
