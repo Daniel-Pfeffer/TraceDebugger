@@ -3,6 +3,6 @@ package at.jku.ssw
 
 
 fun main(){
-    val filePath = (OnTheFlyCompiler::class.java).classLoader.getResource("Test.java").path
+    val filePath = (OnTheFlyCompiler::class.java).classLoader.getResource("Demo.java")!!.path
     OnTheFlyCompiler.compile(filePath)
 }

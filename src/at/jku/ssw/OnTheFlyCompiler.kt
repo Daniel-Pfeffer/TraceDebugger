@@ -21,7 +21,19 @@ object OnTheFlyCompiler {
     private val COMPILATION_OUTPUT_DIR = Files.createTempDirectory(COMPILATION_DIR_NAME).toAbsolutePath().toString()
     private val COMPILATION_INPUT_DIR = Files.createTempDirectory(COMPILATION_DIR_NAME)
     val INTERNAL_CLASS_PATTERNS: List<String> = listOf(
-        "java.*", "javax.*", "javafx.*", "sun.*", "com.sun.*", "jdk.*", "*.In", "*.Out", "*.Rand", "In", "Out", "Rand", "$\$jwdebug"
+        "java.*",
+        "javax.*",
+        "javafx.*",
+        "sun.*",
+        "com.sun.*",
+        "jdk.*",
+        "*.In",
+        "*.Out",
+        "*.Rand",
+        "In",
+        "Out",
+        "Rand",
+        "$\$jwdebug"
     )
 
 
@@ -60,6 +72,7 @@ object OnTheFlyCompiler {
         }.forEach {
             VarAssignmentVisitor.generate(it, context)
         }
+
 
 
         println(task)

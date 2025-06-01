@@ -38,13 +38,26 @@ public class $$$TraceRecorder {
         localVariables = new HashMap<>();
         stack.push(identifier);
 
-        for (int i = 0; i < args.length; i++) {
+        /*for (int i = 0; i < args.length; i++) {
             var arg = args[i];
-            var argHash = System.identityHashCode(arg);
             var argName = "arg" + i;
+            builder.append("Setting ").append(argName).append(" to ");
+            switch (arg) {
+                case Integer realArg -> builder.append(realArg);
+                case String realArg -> builder.append(realArg);
+                case Double realArg -> builder.append(realArg);
+                case Float realArg -> builder.append(realArg);
+                case Boolean realArg -> builder.append(realArg);
+                case Byte realArg -> builder.append(realArg);
+                case Long realArg -> builder.append(realArg);
+                case Character realArg -> builder.append(realArg);
+                case Short realArg -> builder.append(realArg);
+                case null, default -> builder.append(System.identityHashCode(arg));
+            }
+
             localVariables.put(argName, arg);
-            builder.append("Setting ").append(argName).append(" to ").append(argHash).append("\n");
-        }
+            builder.append("\n");
+        }*/
     }
 
     public static void exitMethod() {
@@ -54,7 +67,7 @@ public class $$$TraceRecorder {
         localVariables = currentLocals.locals;
     }
 
-    public static Object setField(Object object, String fieldName, Object value) {
+    public static <T> T setField(Object object, String fieldName, T value) {
         // TODO: find better solution for finding unique identifiers for objects
         int objectHash = System.identityHashCode(object);
         int valueHash = System.identityHashCode(value);
@@ -78,7 +91,7 @@ public class $$$TraceRecorder {
         return value;
     }
 
-    public static Object createObject(Object object) {
+    public static <T> T createObject(T object) {
         int objectHash = System.identityHashCode(object);
         var identifier = object.getClass().getName();
         builder.append("Creating <").append(identifier).append("> with hash ").append(objectHash).append("\n");
@@ -155,8 +168,55 @@ public class $$$TraceRecorder {
         return value;
     }
 
+    // set static variables
+    public static <T> T setStaticVariable(String className, String fieldName, T value) {
+        int hashValue = System.identityHashCode(value);
+        builder.append("Setting static field ").append(className).append(".").append(fieldName).append(" to ").append(hashValue).append("\n");
+        return value;
+    }
+
+    public static int setStaticVariable(String className, String fieldName, int value) {
+        builder.append("Setting static field ").append(className).append(".").append(fieldName).append(" to ").append(value).append("\n");
+        return value;
+    }
+
+    public static double setStaticVariable(String className, String fieldName, double value) {
+        builder.append("Setting static field ").append(className).append(".").append(fieldName).append(" to ").append(value).append("\n");
+        return value;
+    }
+
+    public static float setStaticVariable(String className, String fieldName, float value) {
+        builder.append("Setting static field ").append(className).append(".").append(fieldName).append(" to ").append(value).append("\n");
+        return value;
+    }
+
+    public static boolean setStaticVariable(String className, String fieldName, boolean value) {
+        builder.append("Setting static field ").append(className).append(".").append(fieldName).append(" to ").append(value).append("\n");
+        return value;
+    }
+
+    public static byte setStaticVariable(String className, String fieldName, byte value) {
+        builder.append("Setting static field ").append(className).append(".").append(fieldName).append(" to ").append(value).append("\n");
+        return value;
+    }
+
+    public static long setStaticVariable(String className, String fieldName, long value) {
+        builder.append("Setting static field ").append(className).append(".").append(fieldName).append(" to ").append(value).append("\n");
+        return value;
+    }
+
+    public static char setStaticVariable(String className, String fieldName, char value) {
+        builder.append("Setting static field ").append(className).append(".").append(fieldName).append(" to ").append(value).append("\n");
+        return value;
+    }
+
+    public static short setStaticVariable(String className, String fieldName, short value) {
+        builder.append("Setting static field ").append(className).append(".").append(fieldName).append(" to ").append(value).append("\n");
+        return value;
+    }
+
     // Return values from methods
-    public static Object returnValue(Object value) {
+    public static <T> T returnValue(T value) {
         int hashValue = System.identityHashCode(value);
         builder.append("Returning value: ").append(hashValue).append("\n");
         return value;
@@ -207,17 +267,145 @@ public class $$$TraceRecorder {
         return condition;
     }
 
+    public static <T> T recordNewObjectCreation(T object) {
+        int objectHash = System.identityHashCode(object);
+        var identifier = object.getClass().getName();
+        builder.append("Creating new object <").append(identifier).append("> with hash ").append(objectHash).append("\n");
+        return object;
+    }
+
+    // increment local variables
+    public static int unaryLocal(String name, int value, int newValue) {
+        setLocalVariable(name, newValue);
+        return value;
+    }
+
+    public static double unaryLocal(String name, double value, double newValue) {
+        setLocalVariable(name, newValue);
+        return value;
+    }
+
+    public static float unaryLocal(String name, float value, float newValue) {
+        setLocalVariable(name, newValue);
+        return value;
+    }
+
+    public static boolean unaryLocal(String name, boolean value, boolean newValue) {
+        setLocalVariable(name, newValue);
+        return value;
+    }
+
+    public static byte unaryLocal(String name, byte value, byte newValue) {
+        setLocalVariable(name, newValue);
+        return value;
+    }
+
+    public static long unaryLocal(String name, long value, long newValue) {
+        setLocalVariable(name, newValue);
+        return value;
+    }
+
+    public static char unaryLocal(String name, char value, char newValue) {
+        setLocalVariable(name, newValue);
+        return value;
+    }
+
+    public static short unaryLocal(String name, short value, short newValue) {
+        setLocalVariable(name, newValue);
+        return value;
+    }
+
+    // increment static variables
+
+    public static int unaryStatic(String className, String fieldName, int value, int newValue) {
+        setStaticVariable(className, fieldName, newValue);
+        return value;
+    }
+
+    public static double unaryStatic(String className, String fieldName, double value, double newValue) {
+        setStaticVariable(className, fieldName, newValue);
+        return value;
+    }
+
+    public static float unaryStatic(String className, String fieldName, float value, float newValue) {
+        setStaticVariable(className, fieldName, newValue);
+        return value;
+    }
+
+    public static boolean unaryStatic(String className, String fieldName, boolean value, boolean newValue) {
+        setStaticVariable(className, fieldName, newValue);
+        return value;
+    }
+
+    public static byte unaryStatic(String className, String fieldName, byte value, byte newValue) {
+        setStaticVariable(className, fieldName, newValue);
+        return value;
+    }
+
+    public static long unaryStatic(String className, String fieldName, long value, long newValue) {
+        setStaticVariable(className, fieldName, newValue);
+        return value;
+    }
+
+    public static char unaryStatic(String className, String fieldName, char value, char newValue) {
+        setStaticVariable(className, fieldName, newValue);
+        return value;
+    }
+
+    public static short unaryStatic(String className, String fieldName, short value, short newValue) {
+        setStaticVariable(className, fieldName, newValue);
+        return value;
+    }
+
+
+    // Unary field
+    public static int unaryField(Object object, String fieldName, int value, int newValue) {
+        setField(object, fieldName, newValue);
+        return value;
+    }
+
+    public static double unaryField(Object object, String fieldName, double value, double newValue) {
+        setField(object, fieldName, newValue);
+        return value;
+    }
+
+    public static float unaryField(Object object, String fieldName, float value, float newValue) {
+        setField(object, fieldName, newValue);
+        return value;
+    }
+
+    public static boolean unaryField(Object object, String fieldName, boolean value, boolean newValue) {
+        setField(object, fieldName, newValue);
+        return value;
+    }
+
+    public static byte unaryField(Object object, String fieldName, byte value, byte newValue) {
+        setField(object, fieldName, newValue);
+        return value;
+    }
+
+    public static long unaryField(Object object, String fieldName, long value, long newValue) {
+        setField(object, fieldName, newValue);
+        return value;
+    }
+
+    public static char unaryField(Object object, String fieldName, char value, char newValue) {
+        setField(object, fieldName, newValue);
+        return value;
+    }
+
+    public static short unaryField(Object object, String fieldName, short value, short newValue) {
+        setField(object, fieldName, newValue);
+        return value;
+    }
+
+
     public static void verifyFinished() {
 
         try (var writer = new FileWriter(OUT)) {
             writer.write(builder.toString());
         } catch (IOException e) {
             throw new RuntimeException(e);
-        }
-
-
-        if (!stack.isEmpty()) {
-            throw new IllegalStateException("Stack is not empty");
         }
     }
 

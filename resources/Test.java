@@ -7,8 +7,16 @@ class Test {
         i = inc(); // Should be 0
         System.out.println(i);
         i++;
-        var x = "Hello World!";
+        var x = methodWith2Args(2, 3.0);
+        Object y = "Hello World!";
+        String xy = "Hello World!";
         inner.x = 4;
+        x += 3;
+        x *= 2;
+        x /= 2;
+        x -= 3;
+        x++;
+        x--;
         if (i < 10) {
             // throw new IllegalArgumentException("i is less than 10");
             i = 5;
@@ -26,7 +34,13 @@ class Test {
     static int globalCnt = 0;
 
     public static int inc() {
-        return globalCnt++;
+        var temp = globalCnt;
+        globalCnt = globalCnt + 1;
+        return temp;
+    }
+
+    public static double methodWith2Args(int a, double b) {
+        return a + b;
     }
 
     static class Inner {

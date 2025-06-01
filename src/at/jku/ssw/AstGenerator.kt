@@ -2,12 +2,11 @@
 
 package at.jku.ssw
 
-import com.sun.tools.javac.code.Flags
 import com.sun.tools.javac.tree.JCTree
 import com.sun.tools.javac.tree.TreeMaker
-import com.sun.tools.javac.util.Names
-import com.sun.tools.javac.util.List;
+import com.sun.tools.javac.util.List
 import com.sun.tools.javac.util.Name
+import com.sun.tools.javac.util.Names
 
 internal class AstGenerator(
     private val names: Names,
@@ -15,47 +14,23 @@ internal class AstGenerator(
 ) {
     private val traceRecoder = names.fromString("$$\$TraceRecorder")
 
-    fun generateVariableDefinition(
-        name: String,
-        init: JCTree.JCExpression
-    ): JCTree.JCVariableDecl {
-        return treeMaker.VarDef(
-            treeMaker.Modifiers(Flags.FINAL.toLong()),
-            names.fromString(name),
-            null,
-            init,
-            true
-        )
-    }
-
     fun generateTraceMethodEntry(
         className: Name,
         methodName: Name,
     ): JCTree.JCExpressionStatement {
-        return treeMaker.Exec(
-            treeMaker.Apply(
-                List.nil(),
-                treeMaker.Select(
-                    treeMaker.Ident(traceRecoder),
-                    names.fromString("enterMethod")
-                ),
-                List.of(
-                    treeMaker.Literal(className.toString()),
-                    treeMaker.Literal(methodName.toString())
-                )
-            )
+        val args = List.of<JCTree.JCExpression>(
+            treeMaker.Literal(className.toString()),
+            treeMaker.Literal(methodName.toString()),
         )
-    }
 
-    fun generateTraceReturnValue(name: Name): JCTree.JCExpressionStatement {
         return treeMaker.Exec(
             treeMaker.Apply(
                 List.nil(),
                 treeMaker.Select(
                     treeMaker.Ident(traceRecoder),
-                    names.fromString("returnValue")
+                    names.fromString("enterMethod"),
                 ),
-                List.of(treeMaker.Ident(name))
+                args
             )
         )
     }
@@ -96,6 +71,18 @@ internal class AstGenerator(
         )
     }
 
+    fun generateTraceRecordReturn(toReturn: JCTree.JCExpression): JCTree.JCExpression {
+        return treeMaker.Apply(
+            List.nil(),
+            treeMaker.Select(
+                treeMaker.Ident(traceRecoder),
+                names.fromString("returnValue")
+            ),
+            List.of(toReturn)
+        )
+
+    }
+
     fun generateTraceRecordCondition(condition: JCTree.JCExpression): JCTree.JCExpression {
         return treeMaker.Apply(
             List.nil(),
@@ -107,7 +94,7 @@ internal class AstGenerator(
         )
     }
 
-    fun generateTraceRecordAssign(
+    fun generateTraceRecordAssignLocal(
         toAssign: Name,
         value: JCTree.JCExpression,
     ): JCTree.JCExpression {
@@ -122,7 +109,116 @@ internal class AstGenerator(
                 value
             )
         )
+    }
 
+    fun generateTraceRecordAssignField(
+        obj: JCTree.JCExpression,
+        fieldName: Name,
+        value: JCTree.JCExpression,
+    ): JCTree.JCExpression {
+        return treeMaker.Apply(
+            List.nil(),
+            treeMaker.Select(
+                treeMaker.Ident(traceRecoder),
+                names.fromString("setField")
+            ),
+            List.of(
+                obj,
+                treeMaker.Literal(fieldName.toString()),
+                value
+            )
+        )
+    }
+
+    fun generateTraceRecordAssignStatic(
+        className: Name,
+        fieldName: Name,
+        value: JCTree.JCExpression,
+    ): JCTree.JCExpression {
+        return treeMaker.Apply(
+            List.nil(),
+            treeMaker.Select(
+                treeMaker.Ident(traceRecoder),
+                names.fromString("setStaticVariable")
+            ),
+            List.of(
+                treeMaker.Literal(className.toString()),
+                treeMaker.Literal(fieldName.toString()),
+                value
+            )
+        )
+    }
+
+    fun generateTraceRecordUnaryLocal(
+        toAssign: Name,
+        value: JCTree.JCExpression,
+    ): JCTree.JCExpression {
+        return treeMaker.Apply(
+            List.nil(),
+            treeMaker.Select(
+                treeMaker.Ident(traceRecoder),
+                names.fromString("unaryLocal")
+            ),
+            List.of(
+                treeMaker.Literal(toAssign.toString()),
+                value,
+                treeMaker.Ident(toAssign)
+            )
+        )
+    }
+
+    fun generateTraceRecordUnaryStatic(
+        className: Name,
+        toAssign: Name,
+        value: JCTree.JCExpression,
+    ): JCTree.JCExpression {
+        return treeMaker.Apply(
+            List.nil(),
+            treeMaker.Select(
+                treeMaker.Ident(traceRecoder),
+                names.fromString("unaryStatic")
+            ),
+            List.of(
+                treeMaker.Literal(className.toString()),
+                treeMaker.Literal(toAssign.toString()),
+                value,
+                treeMaker.Ident(toAssign)
+            )
+        )
+    }
+
+    fun generateTraceRecordUnaryField(
+        obj: JCTree.JCExpression,
+        toAssign: Name,
+        value: JCTree.JCExpression,
+    ): JCTree.JCExpression {
+        return treeMaker.Apply(
+            List.nil(),
+            treeMaker.Select(
+                treeMaker.Ident(traceRecoder),
+                names.fromString("unaryField")
+            ),
+            List.of(
+                obj,
+                treeMaker.Literal(toAssign.toString()),
+                value,
+                treeMaker.Ident(toAssign)
+            )
+        )
+    }
+
+
+    fun generateTraceRecordCreateNewObject(
+        value: JCTree.JCExpression
+    ): JCTree.JCExpression {
+        return treeMaker.Apply(
+            List.nil(),
+            treeMaker.Select(
+                treeMaker.Ident(traceRecoder),
+                names.fromString("recordNewObjectCreation")
+            ),
+            List.of(value)
+        )
     }
 
 }
