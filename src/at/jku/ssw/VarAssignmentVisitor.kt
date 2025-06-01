@@ -207,7 +207,7 @@ internal class VarAssignmentVisitor private constructor(
     }
 
     private fun handleExpression(expr: JCExpression): JCExpression {
-        // TODO: handling arrays
+        // TODO: handling arrays, handle exception throws
         return when (expr) {
             is JCAssign -> handleAssign(expr)
 
