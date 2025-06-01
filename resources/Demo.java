@@ -48,7 +48,6 @@ public class Demo {
             } else if (value > this.value) {
                 if (this.right == null) {
                     this.right = new Node(value);
-                    throw new IllegalArgumentException("Value already exists in the tree: " + value);
                 } else {
                     this.right.insert(value);
                 }
