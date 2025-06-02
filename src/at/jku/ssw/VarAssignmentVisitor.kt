@@ -2,6 +2,7 @@
 
 package at.jku.ssw
 
+import com.sun.source.tree.LineMap
 import com.sun.tools.javac.code.Flags
 import com.sun.tools.javac.code.TypeTag
 import com.sun.tools.javac.tree.JCTree.*
@@ -15,6 +16,7 @@ import kotlin.collections.List as KList
 internal class VarAssignmentVisitor private constructor(
     private val treeMaker: TreeMaker,
     private val names: Names,
+    private val lineMap: LineMap
 ) : TreeTranslator() {
 
     private val generator = AstGenerator(names, treeMaker)
@@ -27,14 +29,14 @@ internal class VarAssignmentVisitor private constructor(
         fun generate(tree: JCCompilationUnit, context: Context) {
             val treeMaker = TreeMaker.instance(context)
             val names = Names.instance(context)
-            val visitor = VarAssignmentVisitor(treeMaker, names)
+            val visitor = VarAssignmentVisitor(treeMaker, names, tree.lineMap)
             tree.accept(visitor)
         }
 
         private const val ANON_PREFIX = "$\$anon"
     }
 
-    // TODO: line numbers, method signatures
+    // TODO: line numbers, method params, method signatures, return with function calls looks wrong as we Exit before entering, which is not correct
     override fun visitMethodDef(methodDecl: JCMethodDecl) {
         localVariableStack.push(mutableListOf())
         val enterStatement = generator.generateTraceMethodEntry(
@@ -178,15 +180,28 @@ internal class VarAssignmentVisitor private constructor(
                 }
 
                 is JCReturn -> {
+                    val returnValue = handleExpression(stat.expr)
+
+                    val newVar = names.fromString("returnValue${lineMap.getLineNumber(stat.pos.toLong())}")
+
+                    val varDef = treeMaker.VarDef(
+                        treeMaker.Modifiers(Flags.EFFECTIVELY_FINAL),
+                        newVar,
+                        null,
+                        returnValue,
+                        true
+                    )
+
                     val beforeReturn = generator.generateMethodExit()
                     val returnActual = treeMaker.Return(
                         generator.generateTraceRecordReturn(
-                            handleExpression(stat.expr)
+                            treeMaker.Ident(newVar)
                         )
                     )
 
                     newStats.appendList(
                         List.of<JCStatement>(
+                            varDef,
                             beforeReturn,
                             returnActual
                         )
