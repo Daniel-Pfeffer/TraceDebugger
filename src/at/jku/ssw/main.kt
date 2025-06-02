@@ -3,5 +3,6 @@ package at.jku.ssw
 
 
 fun main(){
-    OnTheFlyCompiler.compile("/home/danielp/Documents/jku/master/thesis/TraceDebugger/resources/Test.java")
+    val filePath = (OnTheFlyCompiler::class.java).classLoader.getResource("Demo.java")!!.path
+    OnTheFlyCompiler.compile(filePath)
 }
